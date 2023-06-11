@@ -19,7 +19,7 @@
     <tbody></tbody>
   </table><br>
 
-  <form id="addProductForm" method="POST">
+  <form id="addProductForm">
     <input type="text" name="name" placeholder="Product Name"><br>
     <input type="number" name="price" step="0.01" placeholder="Product Price"><br>
     <button type="submit">Add Product</button>
@@ -27,27 +27,29 @@
 
 
   <script>
+    var table;
+
     $(document).ready(function() {
-        var table;
-        var table = $('#productTable').DataTable({
-          ajax: '/products',
-          columns: [
-            { data: 'id' },
-            { data: 'name' },
-            { data: 'price' },
-            {
+      table = $('#productTable').DataTable({
+        ajax: '/products',
+        columns: [
+          { data: 'id' },
+          { data: 'name' },
+          { data: 'price' },
+          {
             data: null,
             render: function(data, type, row) {
-              return '<button onclick="editProduct(' + row.id + ')">Edit</button>' +
-                '<button onclick="deleteProduct(' + row.id + ')">Delete</button>';
+              return '<button onclick="editProduct(' + data.id + ')">Edit</button>' +
+                '<button onclick="deleteProduct(' + data.id + ')" class="delete-btn">Delete</button>' +
+                '<button onclick="updateForm(' + data.id + ')" class="update-btn">Update</button>';
             }
           }
         ]
-        });
+      });
 
+      // Add new product form submission
       $('#addProductForm').submit(function(event) {
         event.preventDefault();
-
         var name = $('input[name="name"]').val();
         var price = $('input[name="price"]').val();
 
@@ -57,56 +59,76 @@
           data: { name: name, price: price },
           success: function(response) {
             alert(response.message);
-            // Clear the form fields
             $('input[name="name"]').val('');
             $('input[name="price"]').val('');
-
-            // Refresh the DataTable to display the new product
             table.ajax.reload();
           },
           error: function(error) {
-            alert('Please fill up the field.');
+            alert('An error occurred while adding the product.');
             console.error(error);
           }
         });
       });
     });
 
-    function editProduct(id) {
-          // Retrieve the current data of the row
-          var rowData = table.row('#row-' + id).data();
+    // Delete button event delegation
+    $('#productTable tbody').on('click', '.delete-btn', function() {
+      var row = $(this).closest('tr');
+      var id = table.row(row).data().id;
 
-          // Display a form or modal for editing the product
-          var formHtml = '<input type="text" id="editName" value="' + rowData.name + '">';
-          formHtml += '<input type="number" id="editPrice" step="0.01" value="' + rowData.price + '">';
-          formHtml += '<button onclick="updateProduct(' + id + ')">Update</button>';
-
-          // Replace the row data with the form
-          table.row('#row-' + id).data(['', formHtml, '', '']).draw(false);
-        }
-
-
-
-    function deleteProduct(id) {
-        if (confirm('Are you sure you want to delete this product?')) {
-          $.ajax({
-            type: 'DELETE',
-            url: '/products/delete',
-            data: { id: id },
-            success: function(response) {
-              alert(response.message);
-              // Remove the row from the DataTable
-              table.row('#row-' + id).remove().draw(false);
-              DataTable.ajax.reload();
-              table.ajax.reload();
-            },
-            error: function(error) {
-              alert('An error occurred while deleting the product.');
-              console.error(error);
-            }
-            
+      if (confirm('Are you sure you want to delete this product?')) {
+        $.ajax({
+          type: 'DELETE',
+          url: '/products/delete',
+          data: { id: id },
+          success: function(response) {
+            alert(response.message);
+            table.ajax.reload();
+          },
+          error: function(error) {
+            alert('An error occurred while deleting the product.');
+            console.error(error);
+          }
         });
+      }
+    });
+
+    // Update button event delegation
+    $('#productTable').on('click', '.update-btn', function() {
+      var row = $(this).closest('tr');
+      var id = table.row(row).data().id;
+      var rowData = table.row(row).data();
+      var formHtml = '<input type="text" id="editName-' + id + '" value="' + rowData.name + '">';
+      formHtml += '<input type="number" id="editPrice-' + id + '" step="0.01" value="' + rowData.price + '">';
+      formHtml += '<button onclick="saveUpdate(' + id + ')">Save</button>';
+      formHtml += '<button onclick="cancelUpdate(' + id + ')">Cancel</button>';
+
+      table.row(row).data(['', formHtml, '', '']).draw(false);
+    });
+
+    // Save update function
+    function saveUpdate(id) {
+      var newName = $('#editName-' + id).val();
+      var newPrice = $('#editPrice-' + id).val();
+
+      $.ajax({
+        type: 'PUT',
+        url: '/products/update',
+        data: { id: id, name: newName, price: newPrice },
+        success: function(response) {
+          alert(response.message);
+          table.ajax.reload();
+        },
+        error: function(error) {
+          alert('An error occurred while updating the product.');
+          console.error(error);
         }
+      });
+    }
+
+    // Cancel update function
+    function cancelUpdate(id) {
+      table.ajax.reload();
     }
   </script>
 </body>
