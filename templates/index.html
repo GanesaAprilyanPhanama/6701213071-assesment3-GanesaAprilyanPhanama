@@ -3,8 +3,10 @@
 <head>
   <title>Product Listing</title>
   <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.3/css/jquery.dataTables.min.css">
+  <link rel="stylesheet" type="text/css" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdn.datatables.net/1.11.3/js/jquery.dataTables.min.js"></script>
+  <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
 </head>
 <body>
   <table id="productTable">
@@ -25,6 +27,13 @@
     <button type="submit">Add Product</button>
   </form>
 
+  <div id="updateDialog" style="display: none;">
+    <form id="updateProductForm">
+      <input type="hidden" name="id" id="updateId">
+      <input type="text" name="name" id="updateName" placeholder="Product Name"><br>
+      <input type="number" name="price" id="updatePrice" step="0.01" placeholder="Product Price"><br>
+    </form>
+  </div>
 
   <script>
     var table;
@@ -40,14 +49,15 @@
             data: null,
             render: function(data, type, row) {
               return '<button onclick="editProduct(' + data.id + ')">Edit</button>' +
-                '<button onclick="deleteProduct(' + data.id + ')" class="delete-btn">Delete</button>' +
-                '<button onclick="updateForm(' + data.id + ')" class="update-btn">Update</button>';
+                '<button onclick="deleteProduct(' + data.id + ')" class="delete-btn">Delete</button>';
             }
           }
-        ]
+        ],
+        createdRow: function(row, data, dataIndex) {
+          $(row).attr('id', data.id);
+        }
       });
 
-      // Add new product form submission
       $('#addProductForm').submit(function(event) {
         event.preventDefault();
         var name = $('input[name="name"]').val();
@@ -71,7 +81,6 @@
       });
     });
 
-    // Delete button event delegation
     $('#productTable tbody').on('click', '.delete-btn', function() {
       var row = $(this).closest('tr');
       var id = table.row(row).data().id;
@@ -93,28 +102,40 @@
       }
     });
 
-    // Update button event delegation
-    $('#productTable').on('click', '.update-btn', function() {
-      var row = $(this).closest('tr');
-      var id = table.row(row).data().id;
-      var rowData = table.row(row).data();
-      var formHtml = '<input type="text" id="editName-' + id + '" value="' + rowData.name + '">';
-      formHtml += '<input type="number" id="editPrice-' + id + '" step="0.01" value="' + rowData.price + '">';
-      formHtml += '<button onclick="saveUpdate(' + id + ')">Save</button>';
-      formHtml += '<button onclick="cancelUpdate(' + id + ')">Cancel</button>';
+    function editProduct(id) {
+      var rowData = table.row('#' + id).data();
 
-      table.row(row).data(['', formHtml, '', '']).draw(false);
-    });
+      $('#updateId').val(rowData.id);
+      $('#updateName').val(rowData.name);
+      $('#updatePrice').val(rowData.price);
 
-    // Save update function
-    function saveUpdate(id) {
-      var newName = $('#editName-' + id).val();
-      var newPrice = $('#editPrice-' + id).val();
+      $('#updateDialog').dialog({
+        title: 'Update Product',
+        autoOpen: false,
+        modal: true,
+        buttons: {
+          "Update": function() {
+            updateProduct();
+            $(this).dialog("close");
+          },
+          "Cancel": function() {
+            $(this).dialog("close");
+          }
+        }
+      });
+
+      $('#updateDialog').dialog("open");
+    }
+
+    function updateProduct() {
+      var id = $('#updateId').val();
+      var name = $('#updateName').val();
+      var price = $('#updatePrice').val();
 
       $.ajax({
         type: 'PUT',
         url: '/products/update',
-        data: { id: id, name: newName, price: newPrice },
+        data: { id: id, name: name, price: price },
         success: function(response) {
           alert(response.message);
           table.ajax.reload();
@@ -124,11 +145,6 @@
           console.error(error);
         }
       });
-    }
-
-    // Cancel update function
-    function cancelUpdate(id) {
-      table.ajax.reload();
     }
   </script>
 </body>
